@@ -17,6 +17,7 @@ Installation:
 Function:
 -----------------------------------------------------------------------
 The demo_script.m uses the provided functional m-files to do the following tasks:
+
 (1) Load the example data, perform pixelwise high-pass filtering to create df images
 
 (2) Detect and localize spikes
