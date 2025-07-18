@@ -4,7 +4,7 @@ This folder contains MATLAB routines that demonstrate Activity Localization Imag
 A small voltage imaging dataset is provided in the 'ali_demo_data.mat' file.
 This dataset contains images of mouse CA1 neurons expressing the voltage indicator 'Voltron 2'.
 These cells were imaged in vivo at 2000 frames per second using a high speed camera.
-In these images, neuronal spiking can be seen as small and brief decreases in fluorescence intensity. 
+In these images, neuronal spiking can be seen as brief decreases in fluorescence intensity. 
 
 Installation:
 -----------------------------------------------------------------------
@@ -17,6 +17,7 @@ Installation:
 Function:
 -----------------------------------------------------------------------
 The demo_script.m uses the provided functional m-files to do the following tasks:
+
 (1) Load the example data, perform pixelwise high-pass filtering to create df images
 
 (2) Detect and localize spikes
