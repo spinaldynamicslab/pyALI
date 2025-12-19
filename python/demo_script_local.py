@@ -16,20 +16,20 @@ from ali_t_decompose import ali_t_decompose
 from scipy.ndimage import gaussian_filter
 from skimage.feature import peak_local_max
 import matplotlib.pyplot as plt
-import diplib as dip
 from skimage import io
+import diplib as dip
+
 # 1) Load example data
-# data = np.asarray(io.loadmat('../../ali_demo_data.mat')['data'])
+# data = np.asarray(io.loadmat('../../ali_demo_data.mat')['data'], dtype="float")
 data = io.imread(r"C:\Users\Urs\Documents\ali_test\f1_t4.tif")
-nframe=data.shape[0]
-data = dip.Image(data.astype('uint16'))
-
-
+dipdata = dip.Image(data.astype('uint16'))
+# data = np.transpose(data, (1,2,0))
+nframe=data.shape[2]
 #%% 2) Detect and localize spikes, generate ALI map
 
 fs=1000
 win=int(fs/1000*10) # 10 ms window
-df=ali_hp_filter(data,win) # temporal highpss filtering by removing median-filtered baseline traces from each pixel
+df=ali_hp_filter(dipdata,win) # temporal highpss filtering by removing median-filtered baseline traces from each pixel
 
 #%% 2) Detect and localize spikes, generate ALI map
 
@@ -38,31 +38,29 @@ spk=ali_spk_coarse(-df) # spk(k,:) contains a coarse coordinate [row, col, frame
 
 #%%
 nsvd=12 # number of svd components, should be larger than the potential number of neurons 
-# we are now working with time being dim 0 when using numpy arrays and time being dim 2 when using diplib images
-df_AP = np.asarray(df)[spk[:,2],:,:]
 # df_AP=df[:,:,spk[:,2]] #the subset of frames that potentially contain spikes
-df_AP_dnoised=ali_denoising(df_AP,nsvd)
+df_AP=dip.Image(np.asarray(df)[spk[:,2],:,:]) #awkward way to index into third dimension
+df_AP_dnoised=ali_denoising(df_AP,nsvd)[0]
 
 #%% determines fine coordinates of each spike with sub-pixel precision
 spk_fine = spk.astype(np.float64)
-# send df_AP_dnoised in with time as dim 2 for legacy resons (should be fixed)
-spk_fine[:,:2]=ali_spk_fine(-df_AP_dnoised.transpose((2,1,0)),15,4,spk[:,:2])[0]
+spk_fine[:,:2]=ali_spk_fine(-df_AP_dnoised,35,6,spk[:,:2])[0]
 
 #%% generate ALI map
-f0 = np.mean(np.asarray(data),axis=0)
+f0 = np.mean(data,axis=2)
 sz = f0.shape
-factor = 4 # specify the resolution of the ALI map (4x higher than the original pixel resolution)
+factor = 1 # specify the resolution of the ALI map (4x higher than the original pixel resolution)
 cnt,cen = ali_density_map(spk_fine[:,:2],sz,factor) #Count the number of APs in each spatial bin
-alimap = gaussian_filter(cnt, sigma=4, radius=8)
+alimap = gaussian_filter(cnt, sigma=3, radius=4)
 
 #%% 3) Automatically detect ALI clusters from the ALI map
-th=2 # detect peaks in the ALI map that are brighter than the value 'th'
+th=0.07 # detect peaks in the ALI map that are brighter than the value 'th'
 
 pks=peak_local_max(alimap, threshold_abs=th)
 clust_cen=np.array([cen[0][pks[:,0]],cen[1][pks[:,1]]]) # 2 x nclust center locations of detected clusters
 nclust = clust_cen.shape[1]
 
-r = 1.5
+r = 4
 clust_idx = ali_assign_cluster(spk_fine[:,:2],clust_cen,r) # assign spikes to the nearest cluster within a distance of 1.5 pixels
 #%% plot everything
 idd = np.argsort(clust_cen[1,:]) # to make the order the same as the original ali matlab code
@@ -71,7 +69,7 @@ f,a = plt.subplots(2,2)
 
 a[0,0].imshow(f0, cmap='gray')
 a[0,1].imshow(f0, cmap='gray')
-a[0,1].plot(spk_fine[:,0], spk_fine[:,1], color='r', marker='.', markersize=2, ls='')
+a[0,1].plot(spk_fine[:,1], spk_fine[:,0], color='r', marker='.', markersize=2, ls='')
 a[1,0].imshow(alimap, cmap='gray')
 for n in range(nclust):
     a[1,1].plot(spk_fine[clust_idx==idd[n]+1,1], spk_fine[clust_idx==idd[n]+1,0], marker='.', markersize=2, ls='')
@@ -86,9 +84,11 @@ for i in range(nclust):
 #%%
 fp,_ = ali_fp_support(footprint,clust_cen,10) # limit the support of footprint to a 10-pixel circular region around cluster center
 #%%
-_,traces = ali_t_decompose(df.reshape((-1,nframe)),fp.reshape((-1,nclust))) #extract time traces from the df movie using the provided footprints
-traces[traces<0] = 0
+dft = ali_hp_filter(data,win*10)
+_,traces = ali_t_decompose(dft.reshape((-1,nframe)),fp.reshape((-1,nclust))) #extract time traces from the df movie using the provided footprints
+# traces[traces<0] = 0
 #%%
 f,a = plt.subplots()
 for n in range(traces.shape[1]):
     a.plot(traces[:,idd[n]] + n*2)
+    # a.plot(traces[:,idd[n]])

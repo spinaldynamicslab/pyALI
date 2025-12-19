@@ -1,4 +1,5 @@
-from scipy.ndimage import median_filter
+from diplib import MedianFilter
+import numpy as np
 
 def ali_hp_filter(stack, win: int):
     """
@@ -20,5 +21,6 @@ def ali_hp_filter(stack, win: int):
     #     stack_reshaped[i, :] = stack_reshaped[i, :] - baseline
 
     # df = stack_reshaped.reshape(sz)
-    df = stack - median_filter(stack, size=(1,1,win))
+    # df = stack - median_filter(stack, size=(1,1,win))
+    df = stack - MedianFilter(stack, (1,1,win))
     return df
